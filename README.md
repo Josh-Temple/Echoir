@@ -128,10 +128,22 @@ Preview build:
 npm run preview
 ```
 
-## GitHub Pages deployment
-1. Run `npm run build`.
+## Deployment
+
+### Vercel (recommended)
+1. Import this repository into Vercel.
+2. Build command: `npm run build`
+3. Output directory: `dist`
+4. Install command: `npm install`
+5. Add environment variable only when needed:
+   - `VITE_BASE_PATH` (optional, defaults to `/` in production builds)
+
+This repo includes `vercel.json` with SPA rewrites so direct URL access falls back to `index.html`.
+
+### GitHub Pages
+1. Run `VITE_BASE_PATH=/Echoir/ npm run build`.
 2. Publish `dist/` with your GitHub Pages workflow.
-3. Current Vite base path is `/Echoir/` in `vite.config.ts`. Update it if repository name changes.
+3. If repository name changes, set `VITE_BASE_PATH` to the new path.
 
 ## Review logic (MVP)
 - `Good`: no urgent review item.
