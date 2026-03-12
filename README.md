@@ -140,6 +140,8 @@ npm run preview
 
 This repo includes `vercel.json` with SPA rewrites so direct URL access falls back to `index.html`.
 
+Note: Vite base-path configuration is read via `loadEnv` in `vite.config.ts`, so builds do not depend on Node global type declarations.
+
 ### GitHub Pages
 1. Run `VITE_BASE_PATH=/Echoir/ npm run build`.
 2. Publish `dist/` with your GitHub Pages workflow.
