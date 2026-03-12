@@ -1,0 +1,38 @@
+[
+  {
+    "id": "alice-a1-001",
+    "unit": "alice",
+    "level": "a1",
+    "order": 1,
+    "text": "She opened the door and looked outside.",
+    "audio": "/audio/alice/alice-a1-001--n.mp3",
+    "tags": ["past", "basic", "coordination"]
+  },
+  {
+    "id": "alice-a1-002",
+    "unit": "alice",
+    "level": "a1",
+    "order": 2,
+    "text": "The room was small, but it felt warm and quiet.",
+    "audio": "/audio/alice/alice-a1-002--n.mp3",
+    "tags": ["contrast", "description"]
+  },
+  {
+    "id": "alice-a2-003",
+    "unit": "alice",
+    "level": "a2",
+    "order": 3,
+    "text": "He paused for a moment before answering the question.",
+    "audio": "/audio/alice/alice-a2-003--n.mp3",
+    "tags": ["timing", "conversation"]
+  },
+  {
+    "id": "alice-a2-004",
+    "unit": "alice",
+    "level": "a2",
+    "order": 4,
+    "text": "They decided to leave early because the weather was changing.",
+    "audio": "/audio/alice/alice-a2-004--n.mp3",
+    "tags": ["reason", "past"]
+  }
+]
