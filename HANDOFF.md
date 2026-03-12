@@ -1,51 +1,28 @@
 # Handoff Notes
 
 ## Session outcome
-This session focused on repairing the MVP flow quality and aligning behavior more tightly with the product constraints:
-- Normal Mode speed and clarity first
-- Hard Mode as advanced optional extension
-- English-only learning flow
-- No multiple-choice / no translation
+This session prepared the project for Vercel deployment while keeping GitHub Pages compatibility.
 
 ## What changed
-1. **Session flow split and friction reduction**
-   - Split exercise into explicit Question and Answer Reveal screens.
-   - Kept reveal → self-rate → next as a short single-action chain.
+1. **Vite base path handling is now environment-driven**
+   - Updated `vite.config.ts` so production builds use `VITE_BASE_PATH` when provided, and default to `/`.
+   - Dev mode always uses `/`.
 
-2. **Hard Mode behavior improved**
-   - Implemented explicit one-sentence delay stages:
-     - play sentence 1
-     - play sentence 2
-     - reconstruct sentence 1
-     - reveal + self-rate
+2. **Vercel SPA routing support added**
+   - Added `vercel.json` with rewrite to `index.html` so direct URL access works for SPA behavior.
 
-3. **Review UX improvements**
-   - Added dedicated Review Queue screen with due count and queue list.
-   - Added “Start due review” path from queue screen.
+3. **README deployment docs updated**
+   - Added a dedicated Vercel deployment section (build/install/output settings).
+   - Updated GitHub Pages instructions to use `VITE_BASE_PATH=/Echoir/ npm run build`.
 
-4. **Missing audio resilience**
-   - Kept clear English-only error messaging.
-   - Added skip control in question flow so broken items do not block session tempo.
-
-5. **Home and stats polish**
-   - Home now shows due review count and recent attempt count (7-day view).
-
-6. **Documentation refresh**
-   - Rewrote README for practical setup/content authoring clarity.
-   - Added explicit mode differences, naming rules, folder structure, and roadmap.
-
-## Current known limitations
-- Dataset loading is still static (`alice.json` only).
-- No automated test suite yet.
-- Hard Mode is functional for delayed flow but still intentionally minimal in controls.
+## Validation run
+- `npm run build` could not be validated locally in this environment because npm package installation returned 403 from the registry.
 
 ## Recommended next session
-1. Add tests for scheduler/storage/session progression.
-2. Extract session logic into dedicated mode modules (`/src/modes`) for cleaner maintenance.
-3. Add optional per-session review-only setup controls (size/filter) before start.
-4. Add richer stats cards while keeping UI minimal.
+1. Configure a production domain and set it in Vercel project settings.
+2. Add a lightweight CI workflow (`npm run build` + `npm run lint`) before deployment.
+3. Consider adding a minimal health-check page or smoke test for release confidence.
 
 ## Operational reminders
-- Keep stable IDs as primary keys; never key by sentence text.
-- Keep all learning-facing copy English-only.
-- Continue manual audio placement under `public/audio/<work>/`.
+- For Vercel: no env var is required unless deploying under a subpath.
+- For GitHub Pages: set `VITE_BASE_PATH` to the repository path during build.
