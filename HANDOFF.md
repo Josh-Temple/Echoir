@@ -1,28 +1,26 @@
 # Handoff Notes
 
 ## Session outcome
-This session prepared the project for Vercel deployment while keeping GitHub Pages compatibility.
+This session fixed a Vercel/TypeScript build failure (`TS2580: Cannot find name 'process'`) without adding new runtime dependencies.
 
 ## What changed
-1. **Vite base path handling is now environment-driven**
-   - Updated `vite.config.ts` so production builds use `VITE_BASE_PATH` when provided, and default to `/`.
-   - Dev mode always uses `/`.
+1. **Removed Node-global dependency from Vite config**
+   - Updated `vite.config.ts` to use `loadEnv(...)` from Vite instead of `process.env`.
+   - This avoids requiring Node type declarations during `tsc -b` for `vite.config.ts`.
 
-2. **Vercel SPA routing support added**
-   - Added `vercel.json` with rewrite to `index.html` so direct URL access works for SPA behavior.
-
-3. **README deployment docs updated**
-   - Added a dedicated Vercel deployment section (build/install/output settings).
-   - Updated GitHub Pages instructions to use `VITE_BASE_PATH=/Echoir/ npm run build`.
+2. **Kept deployment behavior intact**
+   - Production still uses `VITE_BASE_PATH` when set.
+   - Default base remains `/` when `VITE_BASE_PATH` is unset.
+   - Dev mode still uses `/`.
 
 ## Validation run
-- `npm run build` could not be validated locally in this environment because npm package installation returned 403 from the registry.
+- `npm run build` passes locally after this change.
 
 ## Recommended next session
-1. Configure a production domain and set it in Vercel project settings.
-2. Add a lightweight CI workflow (`npm run build` + `npm run lint`) before deployment.
-3. Consider adding a minimal health-check page or smoke test for release confidence.
+1. Add CI checks to run `npm run build` and `npm run lint` on each PR.
+2. Add a tiny deployment smoke test (open app root + one client-side route) after Vercel deploy.
+3. Consider pinning Node/npm versions in project docs or config for reproducible cloud builds.
 
 ## Operational reminders
-- For Vercel: no env var is required unless deploying under a subpath.
+- For Vercel: only set `VITE_BASE_PATH` if deploying under a subpath.
 - For GitHub Pages: set `VITE_BASE_PATH` to the repository path during build.
