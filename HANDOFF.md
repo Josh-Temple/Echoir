@@ -1,36 +1,66 @@
-# Handoff Notes
+# Echoir Handoff
 
-## Session outcome
-Adjusted the current Chapter I implementation to match the intended Text Only workflow (**show once, hide, then reconstruct**) and reinforced naming guidance that clearly separates Wonderland from sequel datasets.
+## Current implementation status
+Echoir remains MVP-sized and focused on reconstruction + self-rating. This pass improved **Text Only mode** effectiveness while keeping the loop lightweight and mobile-friendly.
 
-## What changed
-1. **Text Only reconstruction flow hardening (`src/App.tsx`)**
-   - Added Text Only state tracking in session state:
-     - `textPeekVisible`, `textPeekSeen`
-     - `hardFirstSeen`, `hardSecondSeen`
-   - Implemented `toggleTextPeek()` so learners explicitly control sentence visibility.
-   - Implemented stage guards in `advanceHardTextStage()`:
-     - Cannot advance while text is visible.
-     - Cannot advance until the relevant stage sentence has been shown at least once.
-   - Updated question rendering logic:
-     - Text Only now shows a hidden-state hint by default.
-     - Learner uses `Show sentence` / `Hide sentence` before reconstruction.
-     - In Advanced mode, reconstruction stage keeps text hidden and asks for memory recall.
-   - Updated reveal gating:
-     - In Text Only, Reveal requires hidden text and prior peek action.
+## Recent changes (this pass)
 
-2. **Naming guidance updates (`README.md`)**
-   - Updated naming examples to explicitly include Wonderland and Looking-Glass style IDs.
-   - Updated audio filename examples to match disambiguated naming.
-   - Added a dedicated Text Only operation pattern section documenting expected usage.
+### 1) Text Only presentation variants
+Session setup now supports three lightweight variants:
+- **Standard Recall**
+- **Timed Recall** (auto-hide glimpse)
+- **Retry Recall** (optional immediate retry after low rating)
 
-## Validation run
-- `npm run build` could not be completed in this environment because dependencies were unavailable and `npm install` was blocked (403 from npm registry).
+Relevant files:
+- `src/types/index.ts`
+- `src/lib/storage.ts`
+- `src/screens/SessionSetupScreen.tsx`
 
-## Screenshot status
-- Screenshot not captured in this session because the app could not be started without dependencies.
+### 2) Timed recall (auto-hide)
+Timed Recall now uses simple presets:
+- Short: 2s
+- Medium: 4s
+- Long: 6s
 
-## Recommended next session
-1. Add UI tests for Text Only gating (show/hide requirement and reveal enablement).
-2. If adding sequel datasets, keep mirrored naming (`alice-looking-glass-*`) and separate units.
-3. Consider adding a subtle progress indicator for Text Only stages (shown/hidden/ready).
+A small helper module controls timing values and keeps this easy to remove later:
+- `src/lib/textPresentation.ts`
+
+Auto-hide behavior is handled in `src/App.tsx` via a focused effect.
+
+### 3) Immediate retry after Close/Missed
+For **Retry Recall**, after rating `Close` or `Missed`, users can:
+- tap **Try once more**
+- reattempt from memory
+- reveal answer again
+- choose a **final self-rating** (or tap **Next** to keep original rating)
+
+This creates a quick recovery path without adding typing/quizzes and allows recovery to be reflected in the final score.
+
+### 4) Optional shadow reveal cue
+Text mode can optionally show a short cue before the full answer.
+- Uses `chunks[0]` if dataset chunking exists.
+- Falls back to first two words.
+
+This is intentionally lightweight and toggleable.
+
+### 5) Future-friendly chunk support
+`SentenceItem` now supports optional `chunks?: string[]` for later chunk-based presentation without forcing dataset migration now.
+
+## Why this stays MVP-safe
+- Core loop remains fast: **Look → Reconstruct → Reveal → Rate → Next**.
+- Self-rating remains central.
+- No Japanese, no translation, no multiple-choice, no typing requirements.
+- New options are small and removable if they add friction.
+
+## Suggested next priorities
+1. Add small unit tests for:
+   - timed auto-hide guard behavior,
+   - retry flow transitions,
+   - shadow cue selection (`chunks` vs fallback).
+2. Watch learner friction: if any variant feels noisy, disable by default or remove.
+3. Continue content scaling via datasets, not feature branching.
+
+
+### 6) Lint baseline restored
+- Added `eslint.config.js` for ESLint v9 flat-config compatibility.
+- `npm run lint` can now run once dependencies are available.

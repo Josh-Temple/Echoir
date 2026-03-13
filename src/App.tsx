@@ -1,44 +1,37 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Card from './components/Card';
-import aliceData from './data/alice.json';
-import { isoDate } from './lib/date';
+import { sentenceItems } from './data';
 import { playAudio } from './lib/audio';
+import { isoDate } from './lib/date';
+import { applyRatingToSession, getRecentAttemptCount } from './lib/review';
+import {
+  buildSessionQueue,
+  createSessionState,
+  getInterferenceItem,
+  isSessionEnd,
+  nextTurnState,
+  type SessionState
+} from './lib/session';
+import { getShadowCue, timedRevealSeconds } from './lib/textPresentation';
 import { addHistory, getDefaultSettings, loadStorage, saveStorage, upsertReviewEntry } from './lib/storage';
-import { sameDayRepeatNeeded } from './lib/scheduler';
-import type { Mode, SelfRating, SentenceItem, SessionSettings } from './types';
+import HomeScreen from './screens/HomeScreen';
+import QuestionScreen from './screens/QuestionScreen';
+import RevealScreen from './screens/RevealScreen';
+import ReviewQueueScreen from './screens/ReviewQueueScreen';
+import SessionSetupScreen from './screens/SessionSetupScreen';
+import SessionSummaryScreen from './screens/SessionSummaryScreen';
+import SettingsScreen from './screens/SettingsScreen';
+import type { Mode, SelfRating, SessionSettings } from './types';
 
 type View = 'home' | 'setup' | 'question' | 'reveal' | 'summary' | 'settings' | 'reviewQueue';
-type HardStage = 'play-first' | 'play-second' | 'reconstruct';
 
-interface SessionState {
-  mode: Mode;
-  queue: SentenceItem[];
-  index: number;
-  replayUsed: number;
-  sameDayQueue: SentenceItem[];
-  ratings: Record<SelfRating, number>;
-  reviewItemsAdded: number;
-  audioMessage: string;
-  hardStage: HardStage;
-  textPeekVisible: boolean;
-  textPeekSeen: boolean;
-  hardFirstSeen: boolean;
-  hardSecondSeen: boolean;
-}
-
-const items = (aliceData as SentenceItem[]).sort((a, b) => a.order - b.order);
-
-function shuffle<T>(arr: T[]): T[] {
-  return [...arr].sort(() => Math.random() - 0.5);
+interface RevealRetryState {
+  rating: Exclude<SelfRating, 'good'>;
+  stage: 'offer' | 'retry';
+  answerVisible: boolean;
 }
 
 const todayIso = () => isoDate();
-
-const getRecentAttemptCount = (timestamps: string[]): number => {
-  const now = Date.now();
-  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-  return timestamps.filter((t) => now - new Date(t).getTime() <= sevenDaysMs).length;
-};
 
 export default function App() {
   const stored = loadStorage();
@@ -47,13 +40,30 @@ export default function App() {
   const [history, setHistory] = useState(stored.history);
   const [reviewQueue, setReviewQueue] = useState(stored.reviewQueue);
   const [session, setSession] = useState<SessionState | null>(null);
+  const [revealFullAnswer, setRevealFullAnswer] = useState(false);
+  const [revealRetryState, setRevealRetryState] = useState<RevealRetryState | null>(null);
 
-  const allUnits = useMemo(() => [...new Set(items.map((x) => x.unit))], []);
-  const allLevels = useMemo(() => [...new Set(items.map((x) => x.level))], []);
+  const allUnits = useMemo(() => [...new Set(sentenceItems.map((x) => x.unit))], []);
+  const allLevels = useMemo(() => [...new Set(sentenceItems.map((x) => x.level))], []);
 
   const dueItems = reviewQueue.filter((entry) => entry.dueDate <= todayIso());
   const dueCount = dueItems.length;
   const recentAttempts = getRecentAttemptCount(history.map((h) => h.reviewedAt));
+
+  useEffect(() => {
+    if (!session || settings.studyMode !== 'text' || settings.textPresentation !== 'timed' || !session.textPeekVisible) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSession((prev) => {
+        if (!prev || !prev.textPeekVisible) return prev;
+        return { ...prev, textPeekVisible: false };
+      });
+    }, timedRevealSeconds[settings.timedRevealPreset] * 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [session, settings.studyMode, settings.textPresentation, settings.timedRevealPreset]);
 
   const persist = (nextHistory = history, nextQueue = reviewQueue, nextSettings = settings) => {
     saveStorage({ history: nextHistory, reviewQueue: nextQueue, settings: nextSettings });
@@ -64,78 +74,64 @@ export default function App() {
     persist(history, reviewQueue, updated);
   };
 
-  const buildQueue = (mode: Mode, picked: SessionSettings): SentenceItem[] => {
-    const filtered = items.filter(
-      (item) =>
-        (picked.units.length === 0 || picked.units.includes(item.unit)) &&
-        (picked.levels.length === 0 || picked.levels.includes(item.level))
+  const startSession = (mode: Mode) => {
+    const queue = buildSessionQueue(
+      sentenceItems,
+      settings,
+      mode,
+      dueItems.map((entry) => entry.id)
     );
 
-    if (mode === 'review') {
-      return dueItems
-        .map((entry) => filtered.find((item) => item.id === entry.id))
-        .filter((item): item is SentenceItem => Boolean(item));
-    }
-
-    return shuffle(filtered).slice(0, picked.sessionSize);
-  };
-
-  const startSession = (mode: Mode) => {
-    const queue = buildQueue(mode, settings);
-    if (queue.length === 0) {
-      return;
-    }
+    if (queue.length === 0) return;
 
     persist(history, reviewQueue, settings);
-
-    setSession({
-      mode,
-      queue,
-      index: 0,
-      replayUsed: 0,
-      sameDayQueue: [],
-      ratings: { good: 0, close: 0, missed: 0 },
-      reviewItemsAdded: 0,
-      audioMessage: '',
-      hardStage: mode === 'hard' ? 'play-first' : 'reconstruct',
-      textPeekVisible: false,
-      textPeekSeen: false,
-      hardFirstSeen: false,
-      hardSecondSeen: false
-    });
+    setSession(createSessionState(mode, queue));
+    setRevealFullAnswer(false);
+    setRevealRetryState(null);
     setView('question');
-  };
-
-  const getInterferenceItem = (state: SessionState): SentenceItem | null => {
-    if (state.mode !== 'hard') return null;
-    return state.queue[state.index + 1] ?? null;
   };
 
   const promptItem = session ? session.queue[session.index] ?? null : null;
   const interferenceItem = session ? getInterferenceItem(session) : null;
 
-  const nextTurn = (state: SessionState): SessionState => {
-    const nextIndex = state.index + 1;
-    return {
-      ...state,
-      index: nextIndex,
-      replayUsed: 0,
-      audioMessage: '',
-      hardStage: state.mode === 'hard' ? 'play-first' : 'reconstruct',
-      textPeekVisible: false,
-      textPeekSeen: false,
-      hardFirstSeen: false,
-      hardSecondSeen: false
-    };
+  const finalizeRating = (rating: SelfRating) => {
+    if (!session || !promptItem) return;
+
+    const existingAttempt = reviewQueue.find((entry) => entry.id === promptItem.id)?.attempts ?? 0;
+    const nextQueue = upsertReviewEntry(reviewQueue, promptItem.id, rating, existingAttempt + 1);
+    const nextHistory = addHistory(history, {
+      id: promptItem.id,
+      mode: session.mode,
+      selfRating: rating,
+      reviewDue: nextQueue.find((entry) => entry.id === promptItem.id)?.dueDate ?? null
+    });
+
+    const { currentWithRating, nextState } = applyRatingToSession(session, promptItem, rating);
+
+    setHistory(nextHistory);
+    setReviewQueue(nextQueue);
+    persist(nextHistory, nextQueue);
+    setRevealRetryState(null);
+    setRevealFullAnswer(false);
+
+    if (nextState.index >= nextState.queue.length) {
+      setSession(currentWithRating);
+      setView('summary');
+      return;
+    }
+
+    setSession(nextState);
+    setView('question');
   };
 
   const moveForwardWithoutRating = () => {
     if (!session) return;
 
-    const isQueueEnd = session.index >= session.queue.length - 1;
-    const nextState = nextTurn(session);
+    const nextState = nextTurnState(session);
+    setRevealRetryState(null);
+    setRevealFullAnswer(false);
 
-    if (isQueueEnd || nextState.index >= session.queue.length) {
+    if (isSessionEnd(session) || nextState.index >= session.queue.length) {
       setSession(session);
       setView('summary');
       return;
@@ -163,35 +159,23 @@ export default function App() {
 
   const advanceHardTextStage = () => {
     if (!session || session.mode !== 'hard') return;
-
     if (session.textPeekVisible) return;
 
     if (session.hardStage === 'play-first') {
       if (!session.hardFirstSeen) return;
-      setSession({
-        ...session,
-        hardStage: interferenceItem ? 'play-second' : 'reconstruct',
-        textPeekVisible: false
-      });
+      setSession({ ...session, hardStage: interferenceItem ? 'play-second' : 'reconstruct', textPeekVisible: false });
       return;
     }
 
     if (session.hardStage === 'play-second') {
       if (!session.hardSecondSeen) return;
-      setSession({
-        ...session,
-        hardStage: 'reconstruct',
-        textPeekVisible: false
-      });
+      setSession({ ...session, hardStage: 'reconstruct', textPeekVisible: false });
     }
   };
 
   const playCurrentAudio = async () => {
     if (!session || !promptItem) return;
-
-    if (session.mode !== 'hard' && session.replayUsed >= settings.replayCount) {
-      return;
-    }
+    if (session.mode !== 'hard' && session.replayUsed >= settings.replayCount) return;
 
     if (session.mode === 'hard') {
       if (session.hardStage === 'play-first') {
@@ -219,282 +203,100 @@ export default function App() {
     }
 
     const result = await playAudio(promptItem.audio);
-    setSession({
-      ...session,
-      replayUsed: session.replayUsed + 1,
-      audioMessage: result.message ?? ''
-    });
+    setSession({ ...session, replayUsed: session.replayUsed + 1, audioMessage: result.message ?? '' });
   };
 
   const revealAnswer = () => {
     if (!session) return;
     if (session.mode === 'hard' && session.hardStage !== 'reconstruct') return;
+    setRevealFullAnswer(settings.studyMode !== 'text' || !settings.shadowReveal);
+    setRevealRetryState(null);
     setView('reveal');
   };
 
   const rateAndNext = (rating: SelfRating) => {
-    if (!session || !promptItem) return;
+    const shouldOfferRetry = settings.studyMode === 'text' && settings.textPresentation === 'retry' && rating !== 'good';
 
-    const existingAttempt = reviewQueue.find((entry) => entry.id === promptItem.id)?.attempts ?? 0;
-    const nextQueue = upsertReviewEntry(reviewQueue, promptItem.id, rating, existingAttempt + 1);
-    const nextHistory = addHistory(history, {
-      id: promptItem.id,
-      mode: session.mode,
-      selfRating: rating,
-      reviewDue: nextQueue.find((entry) => entry.id === promptItem.id)?.dueDate ?? null
-    });
-
-    const shouldRepeat = sameDayRepeatNeeded(rating);
-    const updatedSameDay = shouldRepeat ? [...session.sameDayQueue, promptItem] : session.sameDayQueue;
-    const isQueueEnd = session.index >= session.queue.length - 1;
-    const mergedQueue = isQueueEnd && updatedSameDay.length > 0 ? [...session.queue, ...updatedSameDay] : session.queue;
-
-    const currentWithRating: SessionState = {
-      ...session,
-      queue: mergedQueue,
-      sameDayQueue: isQueueEnd ? [] : updatedSameDay,
-      ratings: {
-        ...session.ratings,
-        [rating]: session.ratings[rating] + 1
-      },
-      reviewItemsAdded: rating === 'good' ? session.reviewItemsAdded : session.reviewItemsAdded + 1
-    };
-
-    const nextState = nextTurn(currentWithRating);
-
-    setHistory(nextHistory);
-    setReviewQueue(nextQueue);
-    persist(nextHistory, nextQueue);
-
-    if (nextState.index >= nextState.queue.length) {
-      setSession(currentWithRating);
-      setView('summary');
+    if (shouldOfferRetry) {
+      setRevealRetryState({
+        rating,
+        stage: 'offer',
+        answerVisible: true
+      });
       return;
     }
 
-    setSession(nextState);
-    setView('question');
+    finalizeRating(rating);
   };
 
   const toggleChoice = (type: 'units' | 'levels', value: string) => {
     const source = settings[type];
     const next = source.includes(value) ? source.filter((item) => item !== value) : [...source, value];
-    const updated = { ...settings, [type]: next };
-    setSettings(updated);
-    persist(history, reviewQueue, updated);
+    updateSettings({ ...settings, [type]: next });
   };
 
   if (view === 'home') {
     return (
-      <main className="container homeContainer">
-        <Card>
-          <header className="homeHeader">
-            <h1>Echoir</h1>
-            <p>Listen, reconstruct, repeat.</p>
-          </header>
-
-          <section className="mainActions" aria-label="Start modes">
-            <button
-              className="btnPrimary"
-              onClick={() => {
-                updateSettings({ ...settings, mode: 'normal' });
-                setView('setup');
-              }}
-            >
-              Start Normal Mode
-            </button>
-            <button
-              className="btnSecondary"
-              onClick={() => {
-                updateSettings({ ...settings, mode: 'hard' });
-                setView('setup');
-              }}
-            >
-              Start Hard Mode
-            </button>
-          </section>
-
-          <section className={`reviewSection ${dueCount === 0 ? 'reviewSectionMuted' : ''}`} aria-label="Review actions">
-            <p className="sectionLabel">Review</p>
-            <p className="reviewDueText">Review due today: <strong>{dueCount}</strong></p>
-            <div className="actions reviewActions">
-              <button className="btnGhost" onClick={() => setView('reviewQueue')}>View Review Queue</button>
-              <button className="btnGhost" onClick={() => startSession('review')} disabled={dueCount === 0}>Start Review Session</button>
-            </div>
-          </section>
-
-          <section className="statsSection" aria-label="Recent stats">
-            <p>Attempts in last 7 days: <strong>{recentAttempts}</strong></p>
-          </section>
-
-          <div className="footerActions">
-            <button className="link" onClick={() => setView('settings')}>Settings</button>
-          </div>
-        </Card>
-      </main>
+      <HomeScreen
+        dueCount={dueCount}
+        recentAttempts={recentAttempts}
+        onStartNormalMode={() => {
+          updateSettings({ ...settings, mode: 'normal' });
+          setView('setup');
+        }}
+        onStartHardMode={() => {
+          updateSettings({ ...settings, mode: 'hard' });
+          setView('setup');
+        }}
+        onOpenReviewQueue={() => setView('reviewQueue')}
+        onStartReviewSession={() => startSession('review')}
+        onOpenSettings={() => setView('settings')}
+      />
     );
   }
 
   if (view === 'reviewQueue') {
     return (
-      <main className="container">
-        <Card>
-          <h2>Review Queue</h2>
-          <p>Due now: {dueCount}</p>
-          {reviewQueue.length === 0 && <p>No review items yet.</p>}
-          {reviewQueue.length > 0 && (
-            <ul className="queueList">
-              {reviewQueue
-                .slice()
-                .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-                .map((entry) => (
-                  <li key={entry.id}>
-                    <strong>{entry.id}</strong>
-                    <span>Due: {entry.dueDate}</span>
-                    <span>Last rating: {entry.lastRating}</span>
-                  </li>
-                ))}
-            </ul>
-          )}
-          <div className="actions">
-            <button onClick={() => startSession('review')} disabled={dueCount === 0}>Start due review</button>
-            <button onClick={() => setView('home')}>Back</button>
-          </div>
-        </Card>
-      </main>
+      <ReviewQueueScreen
+        reviewQueue={reviewQueue}
+        dueCount={dueCount}
+        onStartDueReview={() => startSession('review')}
+        onBack={() => setView('home')}
+      />
     );
   }
 
   if (view === 'setup') {
     return (
-      <main className="container">
-        <Card>
-          <h2>Session Setup</h2>
-          <label>
-            Mode
-            <select
-              value={settings.mode}
-              onChange={(e) => updateSettings({ ...settings, mode: e.target.value as SessionSettings['mode'] })}
-            >
-              <option value="normal">Normal Mode</option>
-              <option value="hard">Advanced Mode</option>
-            </select>
-          </label>
-          <label>
-            Study mode
-            <select
-              value={settings.studyMode}
-              onChange={(e) => updateSettings({ ...settings, studyMode: e.target.value as SessionSettings['studyMode'] })}
-            >
-              <option value="text">Text Only</option>
-              <option value="audio">Audio + Text</option>
-            </select>
-          </label>
-
-          <label>
-            Session length
-            <input
-              type="number"
-              min={3}
-              max={30}
-              value={settings.sessionSize}
-              onChange={(e) => updateSettings({ ...settings, sessionSize: Number(e.target.value) })}
-            />
-          </label>
-          <label>
-            Replay count
-            <select
-              value={settings.replayCount}
-              onChange={(e) => updateSettings({ ...settings, replayCount: Number(e.target.value) as 1 | 2 })}
-              disabled={settings.mode === 'hard'}
-            >
-              <option value={1}>1</option>
-              <option value={2}>2</option>
-            </select>
-          </label>
-          {settings.mode === 'hard' && <p className="hint">Advanced mode uses one play for each step to keep delay pressure high.</p>}
-
-          <p>Units</p>
-          <div className="chips">
-            {allUnits.map((unit) => (
-              <button
-                key={unit}
-                className={settings.units.includes(unit) ? 'chip active' : 'chip'}
-                onClick={() => toggleChoice('units', unit)}
-              >
-                {unit}
-              </button>
-            ))}
-          </div>
-          <p>Levels</p>
-          <div className="chips">
-            {allLevels.map((level) => (
-              <button
-                key={level}
-                className={settings.levels.includes(level) ? 'chip active' : 'chip'}
-                onClick={() => toggleChoice('levels', level)}
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-
-          <div className="actions">
-            <button onClick={() => startSession(settings.mode)}>Start session</button>
-            <button onClick={() => setView('home')}>Back</button>
-          </div>
-        </Card>
-      </main>
+      <SessionSetupScreen
+        settings={settings}
+        allUnits={allUnits}
+        allLevels={allLevels}
+        onUpdateSettings={updateSettings}
+        onToggleChoice={toggleChoice}
+        onStartSession={() => startSession(settings.mode)}
+        onBack={() => setView('home')}
+      />
     );
   }
 
   if (view === 'settings') {
     return (
-      <main className="container">
-        <Card>
-          <h2>Settings</h2>
-          <p>All data is stored locally in your browser.</p>
-          <p>Current study mode default: <strong>{settings.studyMode === 'text' ? 'Text Only' : 'Audio + Text'}</strong></p>
-          <div className="actions">
-            <button
-              onClick={() => {
-                const fresh = getDefaultSettings();
-                updateSettings(fresh);
-              }}
-            >
-              Reset session defaults
-            </button>
-            <button
-              onClick={() => {
-                setHistory([]);
-                setReviewQueue([]);
-                persist([], [], settings);
-              }}
-            >
-              Clear learning data
-            </button>
-            <button onClick={() => setView('home')}>Back</button>
-          </div>
-        </Card>
-      </main>
+      <SettingsScreen
+        studyMode={settings.studyMode}
+        onResetDefaults={() => updateSettings(getDefaultSettings())}
+        onClearLearningData={() => {
+          setHistory([]);
+          setReviewQueue([]);
+          persist([], [], settings);
+        }}
+        onBack={() => setView('home')}
+      />
     );
   }
 
   if (view === 'summary' && session) {
-    return (
-      <main className="container">
-        <Card>
-          <h2>Session Summary</h2>
-          <p>Total rated items: {session.ratings.good + session.ratings.close + session.ratings.missed}</p>
-          <p>Good: {session.ratings.good}</p>
-          <p>Close: {session.ratings.close}</p>
-          <p>Missed: {session.ratings.missed}</p>
-          <p>Review items added: {session.reviewItemsAdded}</p>
-          <p>Suggested next action: run a short review session later today.</p>
-          <button onClick={() => setView('home')}>Return home</button>
-        </Card>
-      </main>
-    );
+    return <SessionSummaryScreen session={session} onBackHome={() => setView('home')} />;
   }
 
   if (!session || !promptItem) {
@@ -509,102 +311,39 @@ export default function App() {
   }
 
   if (view === 'question') {
-    const isTextOnly = settings.studyMode === 'text';
-
-    const hardInstruction =
-      session.mode === 'hard'
-        ? isTextOnly
-          ? session.hardStage === 'play-first'
-            ? 'Step 1: Read sentence 1 carefully.'
-            : session.hardStage === 'play-second'
-              ? 'Step 2: Read sentence 2, then reconstruct sentence 1.'
-              : 'Reconstruct sentence 1 now, then reveal the answer.'
-          : session.hardStage === 'play-first'
-            ? 'Step 1: play sentence 1.'
-            : session.hardStage === 'play-second'
-              ? 'Step 2: play sentence 2, then reconstruct sentence 1.'
-              : 'Reconstruct sentence 1 now, then reveal the answer.'
-        : isTextOnly
-          ? 'Read the sentence silently first, then reconstruct it from memory.'
-          : 'Listen. Reconstruct the sentence in your mind or out loud.';
-
-    const canRevealByMode = session.mode !== 'hard' || session.hardStage === 'reconstruct';
-    const canReveal = isTextOnly
-      ? canRevealByMode &&
-        !session.textPeekVisible &&
-        (session.mode === 'hard'
-          ? session.hardFirstSeen && (interferenceItem ? session.hardSecondSeen : true)
-          : session.textPeekSeen)
-      : canRevealByMode;
-
-    const textPrompt = session.mode === 'hard' && session.hardStage === 'play-second' && interferenceItem
-      ? interferenceItem.text
-      : promptItem.text;
-
     return (
-      <main className="container">
-        <Card>
-          <h2>{session.mode === 'hard' ? 'Advanced mode' : session.mode === 'review' ? 'Review session' : 'Normal mode'}</h2>
-          <p>Item {session.index + 1} / {session.queue.length}</p>
-          <p>{hardInstruction}</p>
-          {isTextOnly ? (
-            <>
-              {session.mode === 'hard' && session.hardStage === 'reconstruct' ? (
-                <p className="hint">Sentence is hidden. Reconstruct from memory, then reveal the answer.</p>
-              ) : (
-                <>
-                  {session.textPeekVisible ? (
-                    <p className="answer">{textPrompt}</p>
-                  ) : (
-                    <p className="hint">Sentence is hidden. Show it once, then hide and reconstruct.</p>
-                  )}
-                  <button onClick={toggleTextPeek}>{session.textPeekVisible ? 'Hide sentence' : 'Show sentence'}</button>
-                </>
-              )}
-              <p className="hint">Text-only mode is active.</p>
-              {session.mode === 'hard' && session.hardStage !== 'reconstruct' && (
-                <button onClick={advanceHardTextStage} disabled={session.textPeekVisible}>
-                  {session.hardStage === 'play-first' ? 'Continue to sentence 2' : 'Start reconstruction'}
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <button onClick={playCurrentAudio} disabled={session.mode !== 'hard' && session.replayUsed >= settings.replayCount}>
-                {session.mode === 'hard'
-                  ? session.hardStage === 'play-first'
-                    ? 'Play sentence 1'
-                    : session.hardStage === 'play-second'
-                      ? 'Play sentence 2'
-                      : 'Replay disabled in Advanced mode'
-                  : 'Play audio'}
-              </button>
-              {session.mode !== 'hard' && <p>Replay used: {session.replayUsed}/{settings.replayCount}</p>}
-              {session.audioMessage && <p className="error">{session.audioMessage}</p>}
-            </>
-          )}
-
-          <div className="actions">
-            <button onClick={revealAnswer} disabled={!canReveal}>Reveal answer</button>
-            <button onClick={moveForwardWithoutRating}>Skip item</button>
-          </div>
-        </Card>
-      </main>
+      <QuestionScreen
+        session={session}
+        promptItem={promptItem}
+        interferenceItem={interferenceItem}
+        settings={settings}
+        onToggleTextPeek={toggleTextPeek}
+        onAdvanceHardTextStage={advanceHardTextStage}
+        onPlayCurrentAudio={playCurrentAudio}
+        onRevealAnswer={revealAnswer}
+        onSkip={moveForwardWithoutRating}
+      />
     );
   }
 
   return (
-    <main className="container">
-      <Card>
-        <h2>Answer Reveal</h2>
-        <p className="answer">{promptItem.text}</p>
-        <p>How close was your reconstruction?</p>
-        <div className="actions">
-          <button onClick={() => rateAndNext('good')}>Good</button>
-          <button onClick={() => rateAndNext('close')}>Close</button>
-          <button onClick={() => rateAndNext('missed')}>Missed</button>
-        </div>
-      </Card>
-    </main>
+    <RevealScreen
+      promptItem={promptItem}
+      cueText={getShadowCue(promptItem)}
+      showShadowCue={settings.studyMode === 'text' && settings.shadowReveal}
+      fullAnswerVisible={revealFullAnswer}
+      retryState={revealRetryState}
+      onRevealFullAnswer={() => setRevealFullAnswer(true)}
+      onRate={rateAndNext}
+      onStartRetry={() => setRevealRetryState((prev) => (prev ? { ...prev, stage: 'retry', answerVisible: false } : prev))}
+      onRevealRetryAnswer={() => setRevealRetryState((prev) => (prev ? { ...prev, answerVisible: !prev.answerVisible } : prev))}
+      onSkipRetry={() => {
+        if (!revealRetryState) return;
+        finalizeRating(revealRetryState.rating);
+      }}
+      onRateAfterRetry={(rating) => {
+        finalizeRating(rating);
+      }}
+    />
   );
 }

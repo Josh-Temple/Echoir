@@ -207,6 +207,18 @@ label {
   color: #6a7d9a;
 }
 
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggleRow input {
+  width: 18px;
+  height: 18px;
+}
+
 @media (max-width: 640px) {
   .card {
     padding: 16px;
