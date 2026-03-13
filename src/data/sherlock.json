@@ -1,0 +1,47 @@
+[
+  {
+    "id": "sherlock-hound-1902-c1-b2-001",
+    "unit": "sherlock-hound-ch1",
+    "level": "b2",
+    "order": 1,
+    "text": "Mr. Sherlock Holmes, who was usually very late in the mornings, save upon those not infrequent occasions when he was up all night, was seated at the breakfast table.",
+    "audio": "/audio/sherlock-hound-ch1/sherlock-hound-1902-c1-b2-001--n.mp3",
+    "tags": ["sherlock-hound", "chapter1", "narrative"]
+  },
+  {
+    "id": "sherlock-hound-1902-c1-b2-002",
+    "unit": "sherlock-hound-ch1",
+    "level": "b2",
+    "order": 2,
+    "text": "I stood upon the hearth-rug and picked up the stick which our visitor had left behind him the night before.",
+    "audio": "/audio/sherlock-hound-ch1/sherlock-hound-1902-c1-b2-002--n.mp3",
+    "tags": ["sherlock-hound", "chapter1", "past"]
+  },
+  {
+    "id": "sherlock-hound-1902-c1-b2-003",
+    "unit": "sherlock-hound-ch1",
+    "level": "b2",
+    "order": 3,
+    "text": "It was a fine, thick piece of wood, bulbous-headed, of the sort which is known as a Penang lawyer.",
+    "audio": "/audio/sherlock-hound-ch1/sherlock-hound-1902-c1-b2-003--n.mp3",
+    "tags": ["sherlock-hound", "chapter1", "description"]
+  },
+  {
+    "id": "sherlock-hound-1902-c1-b2-004",
+    "unit": "sherlock-hound-ch1",
+    "level": "b2",
+    "order": 4,
+    "text": "To James Mortimer, M.R.C.S., from his friends of the C.C.H., was engraved upon it, with the date 1884.",
+    "audio": "/audio/sherlock-hound-ch1/sherlock-hound-1902-c1-b2-004--n.mp3",
+    "tags": ["sherlock-hound", "chapter1", "detail"]
+  },
+  {
+    "id": "sherlock-hound-1902-c1-b2-005",
+    "unit": "sherlock-hound-ch1",
+    "level": "b2",
+    "order": 5,
+    "text": "Well, Watson, what do you make of it?",
+    "audio": "/audio/sherlock-hound-ch1/sherlock-hound-1902-c1-b2-005--n.mp3",
+    "tags": ["sherlock-hound", "chapter1", "dialogue"]
+  }
+]
