@@ -83,6 +83,7 @@ Audio file rule:
 ## Included sample datasets
 - `src/data/alice.json` (`alice-wonderland-ch1`)
 - `src/data/sherlock.json` (`sherlock-hound-ch1`)
+- `src/data/winnie.json` (`winnie-pooh-ch1`)
 
 The app loads both datasets through `src/data/index.ts`.
 

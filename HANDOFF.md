@@ -64,3 +64,9 @@ This is intentionally lightweight and toggleable.
 ### 6) Lint baseline restored
 - Added `eslint.config.js` for ESLint v9 flat-config compatibility.
 - `npm run lint` can now run once dependencies are available.
+
+### 7) Added Winnie-the-Pooh Chapter I dataset
+- Added `src/data/winnie.json` with Chapter I content normalized for app ingestion.
+- Cleaned visible copy artifacts from the provided source text (line-wrap splits and spacing noise).
+- Wired new dataset into `src/data/index.ts` so it is included in session item loading.
+- Updated README sample dataset list accordingly.
