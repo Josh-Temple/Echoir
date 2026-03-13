@@ -109,6 +109,104 @@ label {
   padding: 0;
 }
 
+
+
+.homeContainer {
+  align-items: start;
+  padding-top: 8px;
+}
+
+.homeHeader {
+  margin-bottom: 16px;
+}
+
+.homeHeader h1 {
+  margin: 0;
+}
+
+.homeHeader p {
+  margin: 8px 0 0;
+  color: #27466f;
+}
+
+.mainActions {
+  display: grid;
+  gap: 10px;
+}
+
+.reviewSection {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e4eaf4;
+}
+
+.reviewSectionMuted {
+  opacity: 0.8;
+}
+
+.sectionLabel {
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5b6f8b;
+}
+
+.reviewDueText {
+  margin: 0 0 10px;
+  color: #203a5d;
+}
+
+.statsSection {
+  margin-top: 14px;
+  color: #4a607f;
+  font-size: 0.95rem;
+}
+
+.statsSection p {
+  margin: 0;
+}
+
+.footerActions {
+  margin-top: 12px;
+}
+
+.reviewActions {
+  margin: 0;
+}
+
+.btnPrimary,
+.btnSecondary,
+.btnGhost {
+  width: 100%;
+}
+
+.btnPrimary {
+  background: #183a6f;
+  border-color: #183a6f;
+  color: #fff;
+  font-weight: 600;
+}
+
+.btnSecondary {
+  background: #f3f7ff;
+  border-color: #c7d7f2;
+  color: #183a6f;
+  font-weight: 600;
+}
+
+.btnGhost {
+  background: #fff;
+  border-color: #d5deee;
+  color: #39557c;
+}
+
+.btnGhost:disabled {
+  background: #f7f9fd;
+  color: #6a7d9a;
+}
+
 @media (max-width: 640px) {
   .card {
     padding: 16px;
