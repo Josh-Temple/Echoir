@@ -234,19 +234,50 @@ export default function App() {
 
   if (view === 'home') {
     return (
-      <main className="container">
+      <main className="container homeContainer">
         <Card>
-          <h1>Echoir</h1>
-          <p>Fast, minimal, repeatable listening reconstruction.</p>
-          <div className="actions">
-            <button onClick={() => { setSettings((prev) => ({ ...prev, mode: 'normal' })); setView('setup'); }}>Start Normal Mode</button>
-            <button onClick={() => { setSettings((prev) => ({ ...prev, mode: 'hard' })); setView('setup'); }}>Start Hard Mode</button>
-            <button onClick={() => setView('reviewQueue')}>Review Queue</button>
-            <button onClick={() => startSession('review')} disabled={dueCount === 0}>Start Review Session</button>
+          <header className="homeHeader">
+            <h1>Echoir</h1>
+            <p>Listen, reconstruct, repeat.</p>
+          </header>
+
+          <section className="mainActions" aria-label="Start modes">
+            <button
+              className="btnPrimary"
+              onClick={() => {
+                setSettings((prev) => ({ ...prev, mode: 'normal' }));
+                setView('setup');
+              }}
+            >
+              Start Normal Mode
+            </button>
+            <button
+              className="btnSecondary"
+              onClick={() => {
+                setSettings((prev) => ({ ...prev, mode: 'hard' }));
+                setView('setup');
+              }}
+            >
+              Start Hard Mode
+            </button>
+          </section>
+
+          <section className={`reviewSection ${dueCount === 0 ? 'reviewSectionMuted' : ''}`} aria-label="Review actions">
+            <p className="sectionLabel">Review</p>
+            <p className="reviewDueText">Review due today: <strong>{dueCount}</strong></p>
+            <div className="actions reviewActions">
+              <button className="btnGhost" onClick={() => setView('reviewQueue')}>View Review Queue</button>
+              <button className="btnGhost" onClick={() => startSession('review')} disabled={dueCount === 0}>Start Review Session</button>
+            </div>
+          </section>
+
+          <section className="statsSection" aria-label="Recent stats">
+            <p>Attempts in last 7 days: <strong>{recentAttempts}</strong></p>
+          </section>
+
+          <div className="footerActions">
+            <button className="link" onClick={() => setView('settings')}>Settings</button>
           </div>
-          <p>Review due today: <strong>{dueCount}</strong></p>
-          <p>Attempts in last 7 days: <strong>{recentAttempts}</strong></p>
-          <button className="link" onClick={() => setView('settings')}>Settings</button>
         </Card>
       </main>
     );
