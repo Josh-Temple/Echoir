@@ -20,6 +20,10 @@ interface SessionState {
   reviewItemsAdded: number;
   audioMessage: string;
   hardStage: HardStage;
+  textPeekVisible: boolean;
+  textPeekSeen: boolean;
+  hardFirstSeen: boolean;
+  hardSecondSeen: boolean;
 }
 
 const items = (aliceData as SentenceItem[]).sort((a, b) => a.order - b.order);
@@ -55,6 +59,11 @@ export default function App() {
     saveStorage({ history: nextHistory, reviewQueue: nextQueue, settings: nextSettings });
   };
 
+  const updateSettings = (updated: SessionSettings) => {
+    setSettings(updated);
+    persist(history, reviewQueue, updated);
+  };
+
   const buildQueue = (mode: Mode, picked: SessionSettings): SentenceItem[] => {
     const filtered = items.filter(
       (item) =>
@@ -77,6 +86,8 @@ export default function App() {
       return;
     }
 
+    persist(history, reviewQueue, settings);
+
     setSession({
       mode,
       queue,
@@ -86,17 +97,13 @@ export default function App() {
       ratings: { good: 0, close: 0, missed: 0 },
       reviewItemsAdded: 0,
       audioMessage: '',
-      hardStage: mode === 'hard' ? 'play-first' : 'reconstruct'
+      hardStage: mode === 'hard' ? 'play-first' : 'reconstruct',
+      textPeekVisible: false,
+      textPeekSeen: false,
+      hardFirstSeen: false,
+      hardSecondSeen: false
     });
     setView('question');
-  };
-
-  const getPromptItem = (state: SessionState): SentenceItem | null => {
-    if (state.mode === 'hard') {
-      return state.queue[state.index] ?? null;
-    }
-
-    return state.queue[state.index] ?? null;
   };
 
   const getInterferenceItem = (state: SessionState): SentenceItem | null => {
@@ -104,7 +111,7 @@ export default function App() {
     return state.queue[state.index + 1] ?? null;
   };
 
-  const promptItem = session ? getPromptItem(session) : null;
+  const promptItem = session ? session.queue[session.index] ?? null : null;
   const interferenceItem = session ? getInterferenceItem(session) : null;
 
   const nextTurn = (state: SessionState): SessionState => {
@@ -114,7 +121,11 @@ export default function App() {
       index: nextIndex,
       replayUsed: 0,
       audioMessage: '',
-      hardStage: state.mode === 'hard' ? 'play-first' : 'reconstruct'
+      hardStage: state.mode === 'hard' ? 'play-first' : 'reconstruct',
+      textPeekVisible: false,
+      textPeekSeen: false,
+      hardFirstSeen: false,
+      hardSecondSeen: false
     };
   };
 
@@ -132,6 +143,47 @@ export default function App() {
 
     setSession(nextState);
     setView('question');
+  };
+
+  const toggleTextPeek = () => {
+    if (!session) return;
+
+    const nextVisible = !session.textPeekVisible;
+    const isFirstStage = session.mode === 'hard' && session.hardStage === 'play-first';
+    const isSecondStage = session.mode === 'hard' && session.hardStage === 'play-second';
+
+    setSession({
+      ...session,
+      textPeekVisible: nextVisible,
+      textPeekSeen: session.textPeekSeen || nextVisible,
+      hardFirstSeen: session.hardFirstSeen || (isFirstStage && nextVisible),
+      hardSecondSeen: session.hardSecondSeen || (isSecondStage && nextVisible)
+    });
+  };
+
+  const advanceHardTextStage = () => {
+    if (!session || session.mode !== 'hard') return;
+
+    if (session.textPeekVisible) return;
+
+    if (session.hardStage === 'play-first') {
+      if (!session.hardFirstSeen) return;
+      setSession({
+        ...session,
+        hardStage: interferenceItem ? 'play-second' : 'reconstruct',
+        textPeekVisible: false
+      });
+      return;
+    }
+
+    if (session.hardStage === 'play-second') {
+      if (!session.hardSecondSeen) return;
+      setSession({
+        ...session,
+        hardStage: 'reconstruct',
+        textPeekVisible: false
+      });
+    }
   };
 
   const playCurrentAudio = async () => {
@@ -245,7 +297,7 @@ export default function App() {
             <button
               className="btnPrimary"
               onClick={() => {
-                setSettings((prev) => ({ ...prev, mode: 'normal' }));
+                updateSettings({ ...settings, mode: 'normal' });
                 setView('setup');
               }}
             >
@@ -254,7 +306,7 @@ export default function App() {
             <button
               className="btnSecondary"
               onClick={() => {
-                setSettings((prev) => ({ ...prev, mode: 'hard' }));
+                updateSettings({ ...settings, mode: 'hard' });
                 setView('setup');
               }}
             >
@@ -322,12 +374,23 @@ export default function App() {
             Mode
             <select
               value={settings.mode}
-              onChange={(e) => setSettings({ ...settings, mode: e.target.value as SessionSettings['mode'] })}
+              onChange={(e) => updateSettings({ ...settings, mode: e.target.value as SessionSettings['mode'] })}
             >
               <option value="normal">Normal Mode</option>
               <option value="hard">Advanced Mode</option>
             </select>
           </label>
+          <label>
+            Study mode
+            <select
+              value={settings.studyMode}
+              onChange={(e) => updateSettings({ ...settings, studyMode: e.target.value as SessionSettings['studyMode'] })}
+            >
+              <option value="text">Text Only</option>
+              <option value="audio">Audio + Text</option>
+            </select>
+          </label>
+
           <label>
             Session length
             <input
@@ -335,14 +398,14 @@ export default function App() {
               min={3}
               max={30}
               value={settings.sessionSize}
-              onChange={(e) => setSettings({ ...settings, sessionSize: Number(e.target.value) })}
+              onChange={(e) => updateSettings({ ...settings, sessionSize: Number(e.target.value) })}
             />
           </label>
           <label>
             Replay count
             <select
               value={settings.replayCount}
-              onChange={(e) => setSettings({ ...settings, replayCount: Number(e.target.value) as 1 | 2 })}
+              onChange={(e) => updateSettings({ ...settings, replayCount: Number(e.target.value) as 1 | 2 })}
               disabled={settings.mode === 'hard'}
             >
               <option value={1}>1</option>
@@ -391,12 +454,12 @@ export default function App() {
         <Card>
           <h2>Settings</h2>
           <p>All data is stored locally in your browser.</p>
+          <p>Current study mode default: <strong>{settings.studyMode === 'text' ? 'Text Only' : 'Audio + Text'}</strong></p>
           <div className="actions">
             <button
               onClick={() => {
                 const fresh = getDefaultSettings();
-                setSettings(fresh);
-                persist(history, reviewQueue, fresh);
+                updateSettings(fresh);
               }}
             >
               Reset session defaults
@@ -446,16 +509,37 @@ export default function App() {
   }
 
   if (view === 'question') {
+    const isTextOnly = settings.studyMode === 'text';
+
     const hardInstruction =
       session.mode === 'hard'
-        ? session.hardStage === 'play-first'
-          ? 'Step 1: play sentence 1.'
-          : session.hardStage === 'play-second'
-            ? 'Step 2: play sentence 2, then reconstruct sentence 1.'
-            : 'Reconstruct sentence 1 now, then reveal the answer.'
-        : 'Listen. Reconstruct the sentence in your mind or out loud.';
+        ? isTextOnly
+          ? session.hardStage === 'play-first'
+            ? 'Step 1: Read sentence 1 carefully.'
+            : session.hardStage === 'play-second'
+              ? 'Step 2: Read sentence 2, then reconstruct sentence 1.'
+              : 'Reconstruct sentence 1 now, then reveal the answer.'
+          : session.hardStage === 'play-first'
+            ? 'Step 1: play sentence 1.'
+            : session.hardStage === 'play-second'
+              ? 'Step 2: play sentence 2, then reconstruct sentence 1.'
+              : 'Reconstruct sentence 1 now, then reveal the answer.'
+        : isTextOnly
+          ? 'Read the sentence silently first, then reconstruct it from memory.'
+          : 'Listen. Reconstruct the sentence in your mind or out loud.';
 
-    const canReveal = session.mode !== 'hard' || session.hardStage === 'reconstruct';
+    const canRevealByMode = session.mode !== 'hard' || session.hardStage === 'reconstruct';
+    const canReveal = isTextOnly
+      ? canRevealByMode &&
+        !session.textPeekVisible &&
+        (session.mode === 'hard'
+          ? session.hardFirstSeen && (interferenceItem ? session.hardSecondSeen : true)
+          : session.textPeekSeen)
+      : canRevealByMode;
+
+    const textPrompt = session.mode === 'hard' && session.hardStage === 'play-second' && interferenceItem
+      ? interferenceItem.text
+      : promptItem.text;
 
     return (
       <main className="container">
@@ -463,17 +547,42 @@ export default function App() {
           <h2>{session.mode === 'hard' ? 'Advanced mode' : session.mode === 'review' ? 'Review session' : 'Normal mode'}</h2>
           <p>Item {session.index + 1} / {session.queue.length}</p>
           <p>{hardInstruction}</p>
-          <button onClick={playCurrentAudio} disabled={session.mode !== 'hard' && session.replayUsed >= settings.replayCount}>
-            {session.mode === 'hard'
-              ? session.hardStage === 'play-first'
-                ? 'Play sentence 1'
-                : session.hardStage === 'play-second'
-                  ? 'Play sentence 2'
-                  : 'Replay disabled in Advanced mode'
-              : 'Play audio'}
-          </button>
-          {session.mode !== 'hard' && <p>Replay used: {session.replayUsed}/{settings.replayCount}</p>}
-          {session.audioMessage && <p className="error">{session.audioMessage}</p>}
+          {isTextOnly ? (
+            <>
+              {session.mode === 'hard' && session.hardStage === 'reconstruct' ? (
+                <p className="hint">Sentence is hidden. Reconstruct from memory, then reveal the answer.</p>
+              ) : (
+                <>
+                  {session.textPeekVisible ? (
+                    <p className="answer">{textPrompt}</p>
+                  ) : (
+                    <p className="hint">Sentence is hidden. Show it once, then hide and reconstruct.</p>
+                  )}
+                  <button onClick={toggleTextPeek}>{session.textPeekVisible ? 'Hide sentence' : 'Show sentence'}</button>
+                </>
+              )}
+              <p className="hint">Text-only mode is active.</p>
+              {session.mode === 'hard' && session.hardStage !== 'reconstruct' && (
+                <button onClick={advanceHardTextStage} disabled={session.textPeekVisible}>
+                  {session.hardStage === 'play-first' ? 'Continue to sentence 2' : 'Start reconstruction'}
+                </button>
+              )}
+            </>
+          ) : (
+            <>
+              <button onClick={playCurrentAudio} disabled={session.mode !== 'hard' && session.replayUsed >= settings.replayCount}>
+                {session.mode === 'hard'
+                  ? session.hardStage === 'play-first'
+                    ? 'Play sentence 1'
+                    : session.hardStage === 'play-second'
+                      ? 'Play sentence 2'
+                      : 'Replay disabled in Advanced mode'
+                  : 'Play audio'}
+              </button>
+              {session.mode !== 'hard' && <p>Replay used: {session.replayUsed}/{settings.replayCount}</p>}
+              {session.audioMessage && <p className="error">{session.audioMessage}</p>}
+            </>
+          )}
 
           <div className="actions">
             <button onClick={revealAnswer} disabled={!canReveal}>Reveal answer</button>

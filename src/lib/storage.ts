@@ -5,6 +5,7 @@ const key = 'echoir.m1.storage';
 
 const defaultSettings: SessionSettings = {
   mode: 'normal',
+  studyMode: 'text',
   sessionSize: 8,
   replayCount: 1,
   units: [],

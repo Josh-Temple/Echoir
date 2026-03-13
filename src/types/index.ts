@@ -14,6 +14,7 @@ export interface SentenceItem {
 
 export interface SessionSettings {
   mode: Exclude<Mode, 'review'>;
+  studyMode: 'text' | 'audio';
   sessionSize: number;
   replayCount: 1 | 2;
   units: string[];
