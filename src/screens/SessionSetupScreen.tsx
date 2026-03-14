@@ -84,6 +84,19 @@ export default function SessionSetupScreen({
           </>
         )}
 
+
+
+        <label>
+          Learning order
+          <select
+            value={settings.learningOrder}
+            onChange={(e) => onUpdateSettings({ ...settings, learningOrder: e.target.value as SessionSettings['learningOrder'] })}
+          >
+            <option value="random">Random order</option>
+            <option value="original">Original text order</option>
+          </select>
+        </label>
+
         <label>
           Session length
           <input

@@ -8,6 +8,7 @@ const defaultSettings: SessionSettings = {
   studyMode: 'text',
   textPresentation: 'standard',
   timedRevealPreset: 'medium',
+  learningOrder: 'random',
   shadowReveal: false,
   sessionSize: 8,
   replayCount: 1,
