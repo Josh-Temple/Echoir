@@ -65,6 +65,14 @@ This is intentionally lightweight and toggleable.
 - Added `eslint.config.js` for ESLint v9 flat-config compatibility.
 - `npm run lint` can now run once dependencies are available.
 
+
+### 8) Added original-order learning mode
+- Session setup now includes **Learning order** with two options:
+  - Random order (default)
+  - Original text order (sorted by dataset `order`)
+- Queue construction in session logic now respects this setting for Normal/Hard sessions.
+- This enables learners to practice in source sequence when desired without removing random practice.
+
 ### 7) Added Winnie-the-Pooh Chapter I dataset
 - Added `src/data/winnie.json` with Chapter I content normalized for app ingestion.
 - Cleaned visible copy artifacts from the provided source text (line-wrap splits and spacing noise).

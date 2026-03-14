@@ -33,6 +33,9 @@ Core value: **reconstruction after listening**, not feature breadth.
   - **Retry Recall**: after `Close`/`Missed`, optional **Try once more** before moving on, then final re-rate
   - Optional **shadow reveal cue** before full answer
 - **Audio + Text**: play audio, reconstruct, reveal, rate
+- **Learning order**
+  - **Random order** (default)
+  - **Original text order** (dataset `order` ascending)
 
 ## Tech stack
 - React
