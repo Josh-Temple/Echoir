@@ -40,7 +40,11 @@ export const buildSessionQueue = (
     return filtered.filter((item) => dueSet.has(item.id));
   }
 
-  return shuffleItems(filtered).slice(0, settings.sessionSize);
+  const ordered = settings.learningOrder === 'original'
+    ? [...filtered].sort((a, b) => a.order - b.order)
+    : shuffleItems(filtered);
+
+  return ordered.slice(0, settings.sessionSize);
 };
 
 export const createSessionState = (mode: Mode, queue: SentenceItem[]): SessionState => ({

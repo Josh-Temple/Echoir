@@ -4,6 +4,7 @@ export type SelfRating = 'good' | 'close' | 'missed';
 
 export type TextPresentationStyle = 'standard' | 'timed' | 'retry';
 export type TimedRevealPreset = 'short' | 'medium' | 'long';
+export type LearningOrder = 'random' | 'original';
 
 export interface SentenceItem {
   id: string;
@@ -21,6 +22,7 @@ export interface SessionSettings {
   studyMode: 'text' | 'audio';
   textPresentation: TextPresentationStyle;
   timedRevealPreset: TimedRevealPreset;
+  learningOrder: LearningOrder;
   shadowReveal: boolean;
   sessionSize: number;
   replayCount: 1 | 2;
