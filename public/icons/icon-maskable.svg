@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Echoir maskable app icon</title>
+  <desc id="desc">A full-bleed navy square with a centered listening cross mark and accent ring.</desc>
+  <rect width="512" height="512" fill="#183a6f"/>
+  <circle cx="256" cy="256" r="176" fill="none" stroke="#8cb6ff" stroke-width="30"/>
+  <path d="M256 136c17 0 30 13 30 30v60h60c17 0 30 13 30 30s-13 30-30 30h-60v60c0 17-13 30-30 30s-30-13-30-30v-60h-60c-17 0-30-13-30-30s13-30 30-30h60v-60c0-17 13-30 30-30Z" fill="#eaf2ff"/>
+</svg>

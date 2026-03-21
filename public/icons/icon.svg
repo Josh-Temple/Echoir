@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Echoir app icon</title>
+  <desc id="desc">A navy circular badge with a light cross and accent ring.</desc>
+  <rect width="512" height="512" rx="112" fill="#183a6f"/>
+  <circle cx="256" cy="256" r="190" fill="none" stroke="#8cb6ff" stroke-width="34"/>
+  <path d="M256 126c18 0 32 14 32 32v66h66c18 0 32 14 32 32s-14 32-32 32h-66v66c0 18-14 32-32 32s-32-14-32-32v-66h-66c-18 0-32-14-32-32s14-32 32-32h66v-66c0-18 14-32 32-32Z" fill="#eaf2ff"/>
+</svg>

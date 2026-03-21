@@ -1,80 +1,41 @@
 # Echoir Handoff
 
 ## Current implementation status
-Echoir remains MVP-sized and focused on reconstruction + self-rating. This pass improved **Text Only mode** effectiveness while keeping the loop lightweight and mobile-friendly.
+Echoir remains MVP-sized and focused on reconstruction + self-rating. This pass adds baseline **PWA support** so the app can be installed and can reopen offline after the first successful load.
 
 ## Recent changes (this pass)
 
-### 1) Text Only presentation variants
-Session setup now supports three lightweight variants:
-- **Standard Recall**
-- **Timed Recall** (auto-hide glimpse)
-- **Retry Recall** (optional immediate retry after low rating)
+### 1) Baseline PWA implementation
+The app now includes the minimum pieces required for Progressive Web App behavior:
+- web app manifest
+- installable text-based SVG app icons
+- service worker registration in the production client
+- offline caching for the app shell and same-origin GET responses
 
 Relevant files:
-- `src/types/index.ts`
-- `src/lib/storage.ts`
-- `src/screens/SessionSetupScreen.tsx`
+- `public/manifest.webmanifest`
+- `public/sw.js`
+- `public/icons/icon.svg`
+- `public/icons/icon-maskable.svg`
+- `src/lib/pwa.ts`
+- `src/main.tsx`
+- `index.html`
 
-### 2) Timed recall (auto-hide)
-Timed Recall now uses simple presets:
-- Short: 2s
-- Medium: 4s
-- Long: 6s
+### 2) Deployment compatibility
+The service worker is registered with `import.meta.env.BASE_URL` scope so the PWA works when deployed at the site root or under a subpath such as GitHub Pages.
 
-A small helper module controls timing values and keeps this easy to remove later:
-- `src/lib/textPresentation.ts`
+### 3) Documentation refresh
+- Updated `README.md` with a dedicated PWA section.
+- Replaced this handoff file so the latest session status reflects the new PWA work.
 
-Auto-hide behavior is handled in `src/App.tsx` via a focused effect.
-
-### 3) Immediate retry after Close/Missed
-For **Retry Recall**, after rating `Close` or `Missed`, users can:
-- tap **Try once more**
-- reattempt from memory
-- reveal answer again
-- choose a **final self-rating** (or tap **Next** to keep original rating)
-
-This creates a quick recovery path without adding typing/quizzes and allows recovery to be reflected in the final score.
-
-### 4) Optional shadow reveal cue
-Text mode can optionally show a short cue before the full answer.
-- Uses `chunks[0]` if dataset chunking exists.
-- Falls back to first two words.
-
-This is intentionally lightweight and toggleable.
-
-### 5) Future-friendly chunk support
-`SentenceItem` now supports optional `chunks?: string[]` for later chunk-based presentation without forcing dataset migration now.
-
-## Why this stays MVP-safe
-- Core loop remains fast: **Look → Reconstruct → Reveal → Rate → Next**.
-- Self-rating remains central.
-- No Japanese, no translation, no multiple-choice, no typing requirements.
-- New options are small and removable if they add friction.
+## Current PWA behavior
+- Works in production builds over HTTPS (or localhost during browser checks).
+- Caches the app shell during service worker install.
+- Caches same-origin GET responses after first fetch.
+- Supports install prompts in browsers that expose install UI.
 
 ## Suggested next priorities
-1. Add small unit tests for:
-   - timed auto-hide guard behavior,
-   - retry flow transitions,
-   - shadow cue selection (`chunks` vs fallback).
-2. Watch learner friction: if any variant feels noisy, disable by default or remove.
-3. Continue content scaling via datasets, not feature branching.
-
-
-### 6) Lint baseline restored
-- Added `eslint.config.js` for ESLint v9 flat-config compatibility.
-- `npm run lint` can now run once dependencies are available.
-
-
-### 8) Added original-order learning mode
-- Session setup now includes **Learning order** with two options:
-  - Random order (default)
-  - Original text order (sorted by dataset `order`)
-- Queue construction in session logic now respects this setting for Normal/Hard sessions.
-- This enables learners to practice in source sequence when desired without removing random practice.
-
-### 7) Added Winnie-the-Pooh Chapter I dataset
-- Added `src/data/winnie.json` with Chapter I content normalized for app ingestion.
-- Cleaned visible copy artifacts from the provided source text (line-wrap splits and spacing noise).
-- Wired new dataset into `src/data/index.ts` so it is included in session item loading.
-- Updated README sample dataset list accordingly.
+1. Add a small in-app install prompt UX using `beforeinstallprompt` so mobile/desktop install is easier to discover.
+2. Add version/update messaging when a new service worker is available.
+3. Consider a more selective runtime caching strategy if audio files become large.
+4. If audio assets are added to production, verify offline expectations explicitly for those files.

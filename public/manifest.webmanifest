@@ -1,0 +1,24 @@
+{
+  "name": "Echoir",
+  "short_name": "Echoir",
+  "description": "A fast, minimal listening-and-reconstruction app for intermediate+ English learners.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f6fa",
+  "theme_color": "#183a6f",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "./icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

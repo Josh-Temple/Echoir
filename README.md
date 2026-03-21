@@ -106,6 +106,16 @@ Lint:
 npm run lint
 ```
 
+## PWA support
+Echoir now ships as a Progressive Web App (PWA) with:
+- a web app manifest (`public/manifest.webmanifest`)
+- installable text-based SVG app icons
+- a service worker (`public/sw.js`) that caches the app shell and same-origin GET responses for offline re-entry
+
+Notes:
+- The service worker is registered only in production builds.
+- `start_url` is relative so deployments under `VITE_BASE_PATH` continue to work.
+
 ## Deployment
 ### Vercel
 - Build command: `npm run build`
